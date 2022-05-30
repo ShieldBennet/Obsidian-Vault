@@ -1,0 +1,93 @@
+{
+  "main": {
+    "id": "8fcb2a8e7277f080",
+    "type": "split",
+    "children": [
+      {
+        "id": "61caf3bada259878",
+        "type": "leaf",
+        "state": {
+          "type": "image",
+          "state": {
+            "file": "Pasted image 20220527104349.png"
+          }
+        }
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "026b1663fa947519",
+    "type": "split",
+    "children": [
+      {
+        "id": "4a72de8b30ec2f4d",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d2745ff84825b7b2",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {}
+            }
+          },
+          {
+            "id": "a8fa4bce72e877be",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "841363b83b926a2a",
+    "type": "split",
+    "children": [
+      {
+        "id": "92d4277e1bef15b9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "98ded6e92665ff08",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Pasted image 20220527104349.png",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "active": "61caf3bada259878",
+  "lastOpenFiles": [
+    "Pasted image 20220527104349.png",
+    "nodejs event loop.md"
+  ]
+}
