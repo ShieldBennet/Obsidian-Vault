@@ -17,7 +17,7 @@ R.ap(R.concat, R.toUpper)('Ramda') //=> 'RamdaRAMDA'
 
 Ramda 经常被当做Lodash 的另外一个"更加FP"的替代库.
 
-相对于Lodash, Ramda 的优势(之一)在于*柯里化*和*data last*的设计带来的便捷的*管道式编程*(pipe).
+相对于Lodash, Ramda 的优势(之一)在于柯里化和data last的设计带来的便捷的管道式编程(pipe).
 
 举一个简单的代码对比示例:
 
@@ -41,7 +41,7 @@ const myFn = (x, y) => {
 }
 ```
 
-*改示例节选之[Stackoverflow上的回答](https://stackoverflow.com/a/71403954/6592925)*
+*该示例节选之[Stackoverflow上的回答](https://stackoverflow.com/a/71403954/6592925)*
 
 ## Ramda 类型签名下鲜为人知的一面
 
@@ -49,7 +49,7 @@ const myFn = (x, y) => {
 
 > add
 ```haskell
-Number → Number → Number`
+Number → Number → Number
 ```
 
 我们结合Ramda 的柯里化规则, 稍加推测, 可以将这个函数转换为TypeScript 的定义:
@@ -64,7 +64,7 @@ OK, 那为什么Ramda 的文档不直接使用TypeScript 表达函数的类型�
 
 其实上面的示例已经部分回答了这个问题 -- 因为更加简洁.
 
-其实Ramda 文档中的类型签名使用的是Haskell 的语法, Haskell 作为一门函数式编程语言, 其语法可以很简洁地表达*柯里化*的语义, 相较之下, TypeScript 的重载的表达方式就显得比较臃肿.
+其实Ramda 文档中的类型签名使用的是Haskell 的语法, Haskell 作为一门函数式编程语言, 其语法可以很简洁地表达柯里化的语义, 相较之下, TypeScript 的重载的表达方式就显得比较臃肿.
 
 当然, 使用Haskell 的类型签名的意义不仅于此, 让我们再看看其他"奇怪"的函数类型:
 
@@ -132,7 +132,7 @@ type AP = <A, B>(f: Promise<((a: A) => B)>) => (fa: Promise<A>) => Promise<B>;
 const ap: AP = (f) => fa => f.then(ff => fa.then(ff));
 ```
 
-`ap`或说`Apply`作为函数式编程中的一种常见抽象, 有着重要的学习意义, 但其抽象的解析超出本文范围, 在这里我们只聚焦于*是什么*, 暂不考虑*为什么*.
+`ap`或说`Apply`作为函数式编程中的一种常见抽象, 有着重要的学习意义, 但其抽象的解析超出本文范围, 在这里我们只聚焦于**是什么**, 暂不考虑**为什么**.
 
 那么, `(r → a → b) → (r → a) → (r → b)`与`Apply f => f (a → b) → f a → f b`是什么关系?
 
