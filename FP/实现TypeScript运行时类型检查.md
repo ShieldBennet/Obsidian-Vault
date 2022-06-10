@@ -15,12 +15,12 @@ parse 之后的数据便是JavaScript 中的数据结构, 这也是JSON 名字�
 
 ## TypeScript 中的类型
 
-TypeScript 在设计之初便已兼容JavaScript 为原则, 所以JSON 也可以直接转换为TypeScript 中的类型.
+TypeScript 在设计之初便以兼容JavaScript 为原则, 所以JSON 也可以直接转换为TypeScript 中的类型.
 
 比如有以下JSON 数据:
 ```JSON
 {
-	"gender": 0
+  "gender": 0
 }
 ```
 
@@ -46,7 +46,7 @@ const user: User = JSON.parse(`{ "gender": 0 }`);
 但是如果JSON 数据为:
 ```JSON
 {
-	"gender": 2
+  "gender": 2
 }
 ```
 
@@ -67,7 +67,7 @@ const user: User = JSON.parse(`{ "gender": 0 }`);
 社区上有很多库提供了"对数据进行校验"这个功能, 但我们今天重点讲讲[io-ts](https://github.com/gcanti/io-ts).
 
 io-ts 的特殊点在于:
-- io-ts 的校验是与TypeScript 的类型一一对应的, 完备程度甚至可以称为TypeScript 的运行时检验.
+- io-ts 的校验是与TypeScript 的类型一一对应的, 完备程度甚至可以称为TypeScript 的运行时校验.
 - io-ts 使用的是`组合子`(combinator)作为抽象模型, 这与大部分`validator generator`有本质上的区别.
 
 本文会着重带领读者实现io-ts 的核心模块, 是对"如何使用组合子进行抽象"的实战讲解.
@@ -93,7 +93,7 @@ interface Parser<I, A> {
 
 > 此处可能有些抽象, 如果有所疑惑是正常现象, 结合下文理解会更加容易些.
 
-维持, 我们希望"能够像处理数据那样处理异常", 这使得我们需要将类型修改为以下形式:
+因此, 我们希望"能够像处理数据那样处理异常", 这使得我们需要将类型修改为以下形式:
 
 ```TypeScript
 interface Parser<I, A, E> {
@@ -131,17 +131,62 @@ type Either<E, A> = Left<E> | Right<A>
 
 我们可以先捋一捋一些常规的组合操作:
 
-- 串行运算: P1 > P2 代表输入数据需要先经过P1 解析, 再经过P2 解析
-- 或运算: P1 | P2 代表输入的数据通过两个解析器中的一个.
-- 且运算: P1 & P2 代表输入的数据**同时**满足P1和P2两个解析器
+- map: P <$> f 代表对解析器P1的结果进行f操作
+- compose: P2 . P1 代表输入数据需要先经过P1 解析, 再经过P2 解析
+- union: P1 <|> P2 代表输入的数据通过两个解析器中的一个.
+- intersect: P1 &  P2 代表输入的数据**同时**满足P1和P2两个解析器
 
-我们先实现串行运算:
+#### 串行运算
+
+串行运算是一种常见的抽象, 比如JavaScript 中的`Promise.then`就是串行运算的经典例子:
 
 ```TypeScript
-
+const inc = n => n + 1;
+Promise.resolve(1).then(inc);
 ```
 
+上面这段代码对`Promise<number>`进行了`inc`的串行运算.
 
+既当`Promise`处于`resolved`状态时, 对其包含的`value: number`进行`inc`, 其返回结果同样为一个`Promise`.
+
+若`Promise`处于`rejected`状态时, 不对其进行任何操作, 而是直接返回一个`rejected`状态的`Promise`.
+
+我们可以脱离Promise, 进而得出`then`的更加泛用的抽象: 
+> 对一个上下文中的结果进行进一步计算, 其返回值同样包含于这个上下文中, 且具有*短路*(short circuit)的特性.
+
+在`Promise.then`中, 这个上下文既是"有可能成功的异步返回值".
+
+得力于这种抽象, 我们可以摆脱`call back hell`和对状态的手动断言(GoLang 的`r, err := f()`).
+
+让我们思考一下, 其实上文中提到的`Either`抽象同样符合这种运算:
+
+1. 当`Either`处于成功的分支`Right`时, 对其进行进一步的运算.
+2. 当Either处于失败的分支`Left`时, 直接返回当前的`Either`.
+
+其实现如下:
+
+```TypeScript
+const map = <A, E, B>(f: (a: A) => B) =>  
+  (fa: Either<E, A>): Either<E, B> => {  
+    if (fa._tag === 'Left') {  
+      return fa;  
+    }  
+    return {  
+      _tag: 'Right',  
+      right: f(fa.right),  
+    };  
+  };
+```
+
+值得注意的是, 这里我们将函数命名为`map`, 而非`then`, 这是为了符合函数式编程的[Functor](https://www.wikiwand.com/en/Functor)定义.
+
+> Functor 是范畴论的一个术语, 在这里我们可以简单将其理解为"实现了map函数"的interface.
+
+进一步地, Parser 同样符合"串行运算"的特质, 为了简洁, 我们这里只给出其类型定义:
+
+```TypeScript
+type map = <I, E, A, B>(f: (a: A) => B) => (fa: Parser<I, A, E>) => Parser<I, B, E>;
+```
 
 
 
