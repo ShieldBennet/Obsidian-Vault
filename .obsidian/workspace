@@ -91,9 +91,10 @@
   "lastOpenFiles": [
     "FP/实现TypeScript运行时类型检查.md",
     "FP/Ramda 鲜为人知的一面.md",
-    "JS runtime/Chrome process architecture.md",
+    "react-location/React Location.md",
+    "JavaScript runtime/Chrome process architecture.md",
     "Autopsy report/Frontend display mismatch field.md",
-    "JS runtime/nodejs event loop.md",
-    "JS runtime/Pasted image 20220527104349.png"
+    "JavaScript runtime/nodejs event loop.md",
+    "JavaScript runtime/Pasted image 20220527104349.png"
   ]
 }

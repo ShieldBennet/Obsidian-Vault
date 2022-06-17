@@ -96,8 +96,8 @@ interface Parser<I, A> {
 因此, 我们希望"能够像处理数据那样处理异常", 这使得我们需要将类型修改为以下形式:
 
 ```TypeScript
-interface Parser<I, A, E> {
-	parse: (i: I) => A | E
+interface Parser<I, E, A> {
+	parse: (i: I) => A | E;
 }
 ```
 
@@ -111,82 +111,158 @@ interface Parser<I, A, E> {
 
 ```TypeScript
 interface Left<E> {  
-  readonly _tag: 'Left'  
-  readonly left: E  
+  readonly _tag: 'Left';  
+  readonly left: E;  
 }  
   
 interface Right<A> {  
-  readonly _tag: 'Right'  
-  readonly right: A  
+  readonly _tag: 'Right';  
+  readonly right: A;  
 }  
   
-type Either<E, A> = Left<E> | Right<A>
+type Either<E, A> = Left<E> | Right<A>;
 ```
 
 通过在union type 的基础上增加一个标识符`tag`, 我们便能够更加便捷地对其进行区分和处理.
 
+基于Either, 我们可以将Parser 的类型优化为:
+
+```TypeScript
+interface Parser<I, E, A> {
+	parse: (i: I) => Either<E, A>;
+}
+```
+
+## TypeScript 的类型系统
+
+由于我们的最终目标是实现于TypeScript 类型系统一一对应的类型检查, 所以我们先理一理TypeScript 类型系统的(部分)基本机制.
+
+首先是TypeScript 的primitive 类型:
+
+```TypeScript
+type Primitive = number | string | boolean;
+```
+
+然后是类型构造器:
+
+```TypeScript
+type Numbers = number[];
+```
+
+当然, 还有最重要的`object type`:
+
+```TypeScript
+interface Point{
+  x: number;
+  y: number;
+}
+```
+
+此外, TypeScript 还实现了类型理论中的union type, intersect type 和  literal type:
+
+```TypeScript
+type Union = A | B;
+type Intersect = A & B;
+type Hello = "hello";
+```
+
+在余下篇幅中, 我们会一一实现这些类型对应的Parser. 
+
 ### 组合子
+
+在实现这些类型的Parser 之前, 让我们先来了解一个概念 -- **组合子**.
 
 组合子, 顾名思义, 就是对某种抽象的组合操作, 在本文中, 特指为对解析器的组合操作.
 
-我们可以先捋一捋一些常规的组合操作:
+在TypeScript 中, 我们也是经常使用"组合" 的方式组合类型:
 
-- map: P <$> f 代表对解析器P1的结果进行f操作
-- compose: P2 . P1 代表输入数据需要先经过P1 解析, 再经过P2 解析
-- union: P1 <|> P2 代表输入的数据通过两个解析器中的一个.
+```TypeScript
+type Union = A | B;
+type Intersect = A & B;
+```
+
+在这个例子中, 我们使用 `|` 和 `&` 作为组合子, 将类型`A`和`B`组合成新的类型. 
+
+同样的, Parser 也有其对应的组合子:
+- union: P1 | P2 代表输入的数据通过两个解析器中的一个.
 - intersect: P1 &  P2 代表输入的数据**同时**满足P1和P2两个解析器
 
-#### 串行运算
+#### union 组合子
 
-串行运算是一种常见的抽象, 比如JavaScript 中的`Promise.then`就是串行运算的经典例子:
-
-```TypeScript
-const inc = n => n + 1;
-Promise.resolve(1).then(inc);
-```
-
-上面这段代码对`Promise<number>`进行了`inc`的串行运算.
-
-既当`Promise`处于`resolved`状态时, 对其包含的`value: number`进行`inc`, 其返回结果同样为一个`Promise`.
-
-若`Promise`处于`rejected`状态时, 不对其进行任何操作, 而是直接返回一个`rejected`状态的`Promise`.
-
-我们可以脱离Promise, 进而得出`then`的更加泛用的抽象: 
-> 对一个上下文中的结果进行进一步计算, 其返回值同样包含于这个上下文中, 且具有*短路*(short circuit)的特性.
-
-在`Promise.then`中, 这个上下文既是"有可能成功的异步返回值".
-
-得力于这种抽象, 我们可以摆脱`call back hell`和对状态的手动断言(GoLang 的`r, err := f()`).
-
-让我们思考一下, 其实上文中提到的`Either`抽象同样符合这种运算:
-
-1. 当`Either`处于成功的分支`Right`时, 对其进行进一步的运算.
-2. 当Either处于失败的分支`Left`时, 直接返回当前的`Either`.
-
-其实现如下:
+该组合子类似于`or`运算:
 
 ```TypeScript
-const map = <A, E, B>(f: (a: A) => B) =>  
-  (fa: Either<E, A>): Either<E, B> => {  
-    if (fa._tag === 'Left') {  
-      return fa;  
-    }  
-    return {  
-      _tag: 'Right',  
-      right: f(fa.right),  
-    };  
-  };
+type Union = <MS extends Parser<any, any, any>[]>(ms: MS) =>  
+    Parser<InputOf<MS[number]>, ErrorOf<MS[number]>, OutputOf<MS[number]>>;
+
+type InputOf<P> = P extends Parser<infer I, any, any> ? I : never;  
+  
+type OutputOf<P> = P extends Parser<any, any, infer A> ? A : never;  
+  
+type ErrorOf<P> = P extends Parser<any, infer E, any> ? E : never;  
 ```
 
-值得注意的是, 这里我们将函数命名为`map`, 而非`then`, 这是为了符合函数式编程的[Functor](https://www.wikiwand.com/en/Functor)定义.
-
-> Functor 是范畴论的一个术语, 在这里我们可以简单将其理解为"实现了map函数"的interface.
-
-进一步地, Parser 同样符合"串行运算"的特质, 为了简洁, 我们这里只给出其类型定义:
+类型看起来有些复杂, 让我们自己看看这个类型的效果:
 
 ```TypeScript
-type map = <I, E, A, B>(f: (a: A) => B) => (fa: Parser<I, A, E>) => Parser<I, B, E>;
+declare const union: Union;  
+declare const p1: Parser<string, string, number>;  
+declare const p2: Parser<number, string, string>;  
+const p3 = union([p1, p2]);
 ```
+
+`p3`的类型被TypeScript为:
+
+```TypeScript
+Parser<string | number, string, string | number>
+```
+
+#### intersert 组合子
+
+该组合子类似于`and`运算:
+
+```TypeScript
+type Intersect = <LI, RI, E, LA, RA>(left: Parser<LI, E, LA>, right: Parser<RI, E, RA>) => Parser<LI & RI, E, LA & RA>;
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
