@@ -327,40 +327,165 @@ t (f a) -> f (t a)
 
 将此类型输入到[Hoogle](https://hoogle.haskell.org/?hoogle=t%20(f%20a)%20-%3E%20f%20(t%20a)), 我们看到这样一条类型签名:
 
-[sequenceA :: (Traversable t, Applicative f) => t (f a) -> f (t a)](https://hackage.haskell.org/package/base/docs/Prelude.html#v:sequenceA)
+> sequenceA :: [Applicative](https://hackage.haskell.org/package/base-4.16.1.0/docs/Prelude.html#t:Applicative "Prelude") f => t (f a) -> f (t a)
 
-> 这段类型签名中的`(Traversable t, Applicative f) =>`是Haskell 中的类型约束, 在余下篇幅中会对其重点讲解, 可以暂时对其忽略.
+> 这段类型签名中的`Applicative f =>`是Haskell 中的类型约束, 在余下篇幅中会对其重点讲解, 可以暂时对其忽略.
 
 即, Haskell 已经有我们所需要的类型转行的抽象, 函数名为`sequenceA`.
 
 我们先记下有`sequnceA`这么个东西, 还有它是干什么的, 在余下篇幅中会进一步阐述.
 
+#### fromStruct 组合子
 
+`fromStruct`对应的是TypeScript 中的`interface`类型, 其类型定义如下:
 
+```TypeScript
+type FromStruct = <P extends Record<string, Parser<any, string, any>>>(properties: P) =>  
+    Parser<{ [K in keyof P]: InputOf<P[K]> }, string, { [K in keyof P]: OutputOf<P[K]> }>;
+```
 
+> 为了简化类型声明, 上例中将`Parser<I, E, A>`中的`E`固定为`string`类型.
 
+让我们检验下类型推断:
 
+```TypeScript
+declare const fromStruct: FromStruct;  
+declare const p2: Parser<number, string, string>;  
+const v = fromStruct({a: p2})
+```
 
+其中`v`被推断为: `Parser<{a: number}, string, {a: string}>`.
 
+在实现层面上, 我们可以将其类型简化为`RecordLike<ParserLike<A>> => ParserLike<RecordLike<A>>`, 即:
 
+```Haskell
+t (f a) -> f (t a)
+```
 
+`fromStruct`和`fromArray`一样, 其实现最终导向了这个"奇怪"的类型转换, 接下来我们就深入这个类型签名, 讲讲其背后蕴含的理论.
 
+#### Traversable和Applicative
 
+我们再来看这个类型签名:
 
+```Haskell
+t (f a) -> f (t a)
+```
 
+这个类型的特征是转换后, `t`和`f`的位置发生了变化, 即, "里外翻转".
 
+其实这种转换在JavaScript我们早已使用到了, 例如`Promise.all`方法:
 
+```
+all<T>(values: Array<Promise<T>>): Promise<Array<T>>;
+```
 
+让我们从`Promise.all`这个特例推导出这个函数的普遍性抽象.
 
+`Promise.all`的执行逻辑(示例所用, 并非node底层实现)如下:
+1. 创建一个空的`Promise r`, 并将其值设定为空数组: `Promise.resolve([])`
+2. 尝试将`values`数组中的`Promise`的值一个个通过`Promise.then`串联`concat`进`Promise r`.
+3. 返回`Promise r`
 
+代码实现如下:
+```TypeScript
+const all = <A>(values: Array<Promise<A>>): Promise<A[]> => values.reduce(  
+    (r, v) => r.then(as => v.then(a => as.concat(a))),  
+    Promise.resolve([] as A[]),  
+);
+```
 
+这个实现中使用了`Promise`的一些操作, 罗列如下:
 
+- 依赖到的`Promise`类型的操作:
+	- `Promise.resolve`
+	- `Promise.then`
 
+其中的`Promise.then`其实是兼具了`Fuctor.map`和`Monad.chain`实现.
 
+`Functor`上文提到过, 让我们简单看看`Monad`.
 
+``` TypeScript
+interface Monad<F> extends Applicative<F>{
+	chain: <A, B>(fa: F<A>, f: (a: A) => F<B>) => F<B>;
+}
+```
 
+> 此为伪代码, TypeScript 不支持*higher kinded types*, 故这段代码在实际的TypeScript 中会报错.
 
+`Promise.then`的两种用法分别对应`Functor.map`和`Monad.chain`:
+- `then<A, B>(f: (a:A) => B): Promise<B>` 对应`Functor.map`
+- `then<A, B>(f: (a:A) => Promise<B>): Promise<B>` 对应`Monad.chain`
 
+`Monad`相比于`Functor`, 拥有更加"强大"的能力:
+
+> 对两个嵌套上下文进行合并, 即`Promise<Promise<A>> => Promise<A>`的转换
+
+在`Monad`的类型声明中, `Monad`还实现了`Applicative`:
+
+```TypeScript
+interface Applicative<F> extends Functor<F> {  
+  of: <A>(a: A) => F<A>;  
+  ap: <A, B>(fab: F<(a: A) => B>, fa: F<A>) => F<B>;
+}
+```
+
+其中的`of`很好理解, 就是将一个值包裹进上下文中, 比如`Promise.resolve`.
+
+而`ap`, 对于`Promise`可以将其实现为:
+
+```TypeScript
+const ap = <A, B>(ffab: Promise<(a: A) => B>, fa: Promise<A>): Promise<B> => fa.then(a => ffab.then(fab => fab(a)));
+```
+
+> 在函数式编程中, `Functor`, `Monad`, `Applicative`这样的类型构造器的类型约束称为`type class`, 而`Promise`这样的实现了某种`type class`的类型称为`instance of type class`.
+
+如代码示例所示, `ap`可以通过`Monad.chain`实现, 那么其意义是什么?
+
+答案是`Monad`是比`Applicative`更加"强大", 但也更加**严格**的约束.
+
+一个函数, 对其依赖的类型拥有更加宽松的类型约束, 其使用场景也会更加广泛, 例如:
+
+```TypeScript
+type Move = (o: Animal) => void;
+```
+
+就比
+
+```TypeScript
+type Move = (o: Dog) => void;
+```
+
+使用场景更加广泛, 也更加合适, 即[最小依赖原则](https://www.wikiwand.com/en/Law_of_Demeter).
+
+`Monad`比`Applicative`更加"强大"的点在于:
+
+> `Applicative`能够对一系列上下文进行串联并且收集其中的值.
+> `Monad`在`Applicative`的基础上, 能够基于一个上下文中的值, 灵活地创建另外一个包裹在上下文中的值. -- [stackoverflow上的回答](https://stackoverflow.com/a/14581288/6592925)
+
+在`Promise.all`中, 我们其实只需要将`Promise`限定为`Applicative`:
+
+```TypeScript
+const all_ = <A,>(values: Array<Promise<A>>): Promise<A[]> =>  
+  values.reduce(  
+    (r, v) =>  
+      ap(  
+        map((as: A[]) => (a: A) => as.concat(a), r),  
+        v,  
+      ),  
+    Promise.resolve([] as A[]),  
+  );
+```
+
+这里的`Promise.all`便是`Promise`版的`sequenceA`实现, 同样的, 我们也可以使用同样的抽象实现`Parser`版的`sequenceA`, 此处留给读者自己去探索发现.
+
+## 总结
+
+本文简单讲解了`io-ts`实现背后的函数式编程原理.
+
+但实际上, `io-ts`真实的实现运用了更多的设计, 比如`tag less final`, 报错类型也使用了其他的代数数据类型(`ADT`)等, 覆盖面之广, 是仅仅一篇博客无法讲完的.
+
+有兴趣的读者推荐[这篇教程](https://github.com/enricopolanski/functional-programming).
 
 
 
