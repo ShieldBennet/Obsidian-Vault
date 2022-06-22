@@ -298,11 +298,42 @@ compose(f3, f2, f1);
 type compose = <A, E, B>(ab: Parser<A, E, B>) => <I>(ia: Parser<I, E, A>) => Parser<I, E, B>;
 ```
 
-#### traverse
+#### fromArray 组合子
 
+对应TypeScript 的`Array` 类型构造器, 我们的Parser 也同样需要类似的映射, 其类型声明如下:
+```TypeScript
+type FromArray = <I, E, A>(item: Parser<I, E, A>) => Parser<I[], E, A[]>;
+```
 
+从类型推断实现是函数式编程的经典做法, 我们不妨根据上述类型推断下`fromArray`的实现.
 
+`fromArray`的返回值是`Parser<I[], E, A[]>`, 与此同时我们有参数`item: Parser<I, E, A>`, 那么我们可以对`I[]`的元素进行`item`进行parser 后得到`Either<E, A>[]`, 之后将`Either<E, A>[]`转换成`Either<E, A[]>`作为最终`Parser`的返回值.
 
+这个类型转换具有通用性, 是函数式编程中的一个重要抽象, 在本节中会化一些篇幅对其推导, 最终将改抽象对应到Haskell 的`sequenceA`函数.
+
+为了`Either<E, A>[] => Either<E, A[]>`的转换逻辑更加清晰, 我们不妨声明一个`type alias`并对其进行简化:
+
+```TypeScript
+type F<A> = Either<string, A>;
+```
+
+然后我们便可以将`Either<E, A>[] => Either<E, A[]>`简化为`Array<F<A>> => F<Array<A>>`, 为了使其更加泛用, 我们可以将`Array`替换为类型变量`T`, 得到`T<F<A>> => F<T<A>>`.
+
+我们将伪代码`T<F<A>> => F<T<A>>`转换成Haskell 的类型签名, 即可得到:
+
+```Haskell
+t (f a) -> f (t a)
+```
+
+将此类型输入到[Hoogle](https://hoogle.haskell.org/?hoogle=t%20(f%20a)%20-%3E%20f%20(t%20a)), 我们看到这样一条类型签名:
+
+[sequenceA :: (Traversable t, Applicative f) => t (f a) -> f (t a)](https://hackage.haskell.org/package/base/docs/Prelude.html#v:sequenceA)
+
+> 这段类型签名中的`(Traversable t, Applicative f) =>`是Haskell 中的类型约束, 在余下篇幅中会对其重点讲解, 可以暂时对其忽略.
+
+即, Haskell 已经有我们所需要的类型转行的抽象, 函数名为`sequenceA`.
+
+我们先记下有`sequnceA`这么个东西, 还有它是干什么的, 在余下篇幅中会进一步阐述.
 
 
 
