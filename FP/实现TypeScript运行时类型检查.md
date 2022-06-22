@@ -210,7 +210,7 @@ declare const p2: Parser<number, string, string>;
 const p3 = union([p1, p2]);
 ```
 
-`p3`的类型被TypeScript为:
+`p3`的类型被TypeScript推断为:
 
 ```TypeScript
 Parser<string | number, string, string | number>
@@ -364,7 +364,7 @@ t (f a) -> f (t a)
 
 `fromStruct`和`fromArray`一样, 其实现最终导向了这个"奇怪"的类型转换, 接下来我们就深入这个类型签名, 讲讲其背后蕴含的理论.
 
-#### Traversable和Applicative
+#### sequenceA和Applicative
 
 我们再来看这个类型签名:
 
