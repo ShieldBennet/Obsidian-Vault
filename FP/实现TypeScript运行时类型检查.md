@@ -1,4 +1,5 @@
 在与后端开发同事对接API时, 同事问我:
+
 > 你们前端是如何对JSON 数据进行encode/decode 的?
 
 这个问题对一个纯前端工程师来说是有些"奇怪"的.
@@ -18,6 +19,7 @@ parse 之后的数据便是JavaScript 中的数据结构, 这也是JSON 名字�
 TypeScript 在设计之初便以兼容JavaScript 为原则, 所以JSON 也可以直接转换为TypeScript 中的类型.
 
 比如有以下JSON 数据:
+
 ```JSON
 {
   "gender": 0
@@ -25,6 +27,7 @@ TypeScript 在设计之初便以兼容JavaScript 为原则, 所以JSON 也可以
 ```
 
 该JSON 可以对应到TypeScript 类型:
+
 ```TypeScript
 enum Gender {  
   Female = 0,  
@@ -37,6 +40,7 @@ interface User {
 ```
 
 对应的parse 代码为:
+
 ```TypeScript
 const user: User = JSON.parse(`{ "gender": 0 }`);
 ```
@@ -44,6 +48,7 @@ const user: User = JSON.parse(`{ "gender": 0 }`);
 > 由于`JSON.parser`返回类型为`any`, 故在我们需要显示地声明`user`变量为`User`类型.
 
 但是如果JSON 数据为:
+
 ```JSON
 {
   "gender": 2
@@ -67,6 +72,7 @@ const user: User = JSON.parse(`{ "gender": 0 }`);
 社区上有很多库提供了"对数据进行校验"这个功能, 但我们今天重点讲讲[io-ts](https://github.com/gcanti/io-ts).
 
 io-ts 的特殊点在于:
+
 - io-ts 的校验是与TypeScript 的类型一一对应的, 完备程度甚至可以称为TypeScript 的运行时类型检查.
 - io-ts 使用的是`组合子`(combinator)作为抽象模型, 这与大部分`validator generator`有本质上的区别.
 
@@ -75,9 +81,10 @@ io-ts 的特殊点在于:
 ### 基础抽象
 
 作为一个解析器(或者称为校验器), 我们可以将其类型表示为:
+
 ```TypeScript
 interface Parser<I, A> {
-	parse: (i: I) => A
+ parse: (i: I) => A;
 }
 ```
 
@@ -97,7 +104,7 @@ interface Parser<I, A> {
 
 ```TypeScript
 interface Parser<I, E, A> {
-	parse: (i: I) => A | E;
+ parse: (i: I) => A | E;
 }
 ```
 
@@ -107,7 +114,7 @@ interface Parser<I, E, A> {
 
 尤其是在`A`和`E`使用同一种类型进行表示的时候, 会更加难以分辨和处理.
 
-对此, 我们将通过`tagged unin type`进行抽象, 类型声明如下:
+对此, 我们将通过`tagged union type`进行抽象, 类型声明如下:
 
 ```TypeScript
 interface Left<E> {  
@@ -129,7 +136,7 @@ type Either<E, A> = Left<E> | Right<A>;
 
 ```TypeScript
 interface Parser<I, E, A> {
-	parse: (i: I) => Either<E, A>;
+ parse: (i: I) => Either<E, A>;
 }
 ```
 
@@ -165,7 +172,7 @@ type Union = A | B;
 type Intersect = A & B;
 ```
 
-在余下篇幅中, 我们会一一实现这些类型对应的Parser. 
+在余下篇幅中, 我们会一一实现这些类型对应的Parser.
 
 ### 组合子
 
@@ -180,9 +187,10 @@ type Union = A | B;
 type Intersect = A & B;
 ```
 
-在这个例子中, 我们使用 `|` 和 `&` 作为组合子, 将类型`A`和`B`组合成新的类型. 
+在这个例子中, 我们使用 `|` 和 `&` 作为组合子, 将类型`A`和`B`组合成新的类型.
 
 同样的, Parser 也有其对应的组合子:
+
 - union: P1 | P2 代表输入的数据通过两个解析器中的一个.
 - intersect: P1 &  P2 代表输入的数据**同时**满足P1和P2两个解析器
 
@@ -216,7 +224,7 @@ const p3 = union([p1, p2]);
 Parser<string | number, string, string | number>
 ```
 
-#### intersert 组合子
+#### intersect 组合子
 
 该组合子类似于`and`运算:
 
@@ -239,7 +247,7 @@ Promise.resolve(1).then(inc);
 
 若`Promise`处于`rejected`状态时, 不对其进行任何操作, 而是直接返回一个`rejected`状态的`Promise`.
 
-我们可以脱离Promise, 进而得出`then`的更加泛用的抽象: 
+我们可以脱离Promise, 进而得出`then`的更加泛用的抽象:
 > 对一个上下文中的结果进行进一步计算, 其返回值同样包含于这个上下文中, 且具有*短路*(short circuit)的特性.
 
 在`Promise.then`中, 这个上下文既是"有可能成功的异步返回值".
@@ -301,6 +309,7 @@ type compose = <A, E, B>(ab: Parser<A, E, B>) => <I>(ia: Parser<I, E, A>) => Par
 #### fromArray 组合子
 
 对应TypeScript 的`Array` 类型构造器, 我们的Parser 也同样需要类似的映射, 其类型声明如下:
+
 ```TypeScript
 type FromArray = <I, E, A>(item: Parser<I, E, A>) => Parser<I[], E, A[]>;
 ```
@@ -328,12 +337,11 @@ t (f a) -> f (t a)
 将此类型输入到[Hoogle](https://hoogle.haskell.org/?hoogle=t%20(f%20a)%20-%3E%20f%20(t%20a)), 我们看到这样一条类型签名:
 
 > sequenceA :: [Applicative](https://hackage.haskell.org/package/base-4.16.1.0/docs/Prelude.html#t:Applicative "Prelude") f => t (f a) -> f (t a)
-
 > 这段类型签名中的`Applicative f =>`是Haskell 中的类型约束, 在余下篇幅中会对其重点讲解, 可以暂时对其忽略.
 
 即, Haskell 已经有我们所需要的类型转行的抽象, 函数名为`sequenceA`.
 
-我们先记下有`sequnceA`这么个东西, 还有它是干什么的, 在余下篇幅中会进一步阐述.
+我们先记下有`sequenceA`这么个东西, 还有它是干什么的, 在余下篇幅中会进一步阐述.
 
 #### fromStruct 组合子
 
@@ -376,18 +384,20 @@ t (f a) -> f (t a)
 
 其实这种转换在JavaScript我们早已使用到了, 例如`Promise.all`方法:
 
-```
+```TypeScript
 all<T>(values: Array<Promise<T>>): Promise<Array<T>>;
 ```
 
 让我们从`Promise.all`这个特例推导出这个函数的普遍性抽象.
 
 `Promise.all`的执行逻辑(示例所用, 并非node底层实现)如下:
+
 1. 创建一个空的`Promise r`, 并将其值设定为空数组: `Promise.resolve([])`
 2. 尝试将`values`数组中的`Promise`的值一个个通过`Promise.then`串联`concat`进`Promise r`.
 3. 返回`Promise r`
 
 代码实现如下:
+
 ```TypeScript
 const all = <A>(values: Array<Promise<A>>): Promise<A[]> => values.reduce(  
     (r, v) => r.then(as => v.then(a => as.concat(a))),  
@@ -397,9 +407,8 @@ const all = <A>(values: Array<Promise<A>>): Promise<A[]> => values.reduce(
 
 这个实现中使用了`Promise`的一些操作, 罗列如下:
 
-- 依赖到的`Promise`类型的操作:
-	- `Promise.resolve`
-	- `Promise.then`
+- `Promise.resolve`
+- `Promise.then`
 
 其中的`Promise.then`其实是兼具了`Fuctor.map`和`Monad.chain`实现.
 
@@ -407,13 +416,14 @@ const all = <A>(values: Array<Promise<A>>): Promise<A[]> => values.reduce(
 
 ``` TypeScript
 interface Monad<F> extends Applicative<F>{
-	chain: <A, B>(fa: F<A>, f: (a: A) => F<B>) => F<B>;
+ chain: <A, B>(fa: F<A>, f: (a: A) => F<B>) => F<B>;
 }
 ```
 
 > 此为伪代码, TypeScript 不支持*higher kinded types*, 故这段代码在实际的TypeScript 中会报错.
 
 `Promise.then`的两种用法分别对应`Functor.map`和`Monad.chain`:
+
 - `then<A, B>(f: (a:A) => B): Promise<B>` 对应`Functor.map`
 - `then<A, B>(f: (a:A) => Promise<B>): Promise<B>` 对应`Monad.chain`
 
@@ -486,23 +496,3 @@ const all_ = <A,>(values: Array<Promise<A>>): Promise<A[]> =>
 但实际上, `io-ts`真实的实现运用了更多的设计, 比如`tag less final`, 报错类型也使用了其他的代数数据类型(`ADT`)等, 覆盖面之广, 是仅仅一篇博客无法讲完的.
 
 有兴趣的读者推荐[这篇教程](https://github.com/enricopolanski/functional-programming).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
